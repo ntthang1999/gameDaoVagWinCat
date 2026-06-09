@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Đào Vàng: Phiên Bản Chuyên Nghiệp 3840x2498</title>
+    <!-- Tailwind CSS for UI Layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for retro/adventure gaming -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lexend:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for premium dynamic retro sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: #0c0805;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .gaming-title {
+            font-family: 'Fredoka One', cursive;
+        }
+        canvas {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }
+        /* Custom scrollbar for shop/customizer panels */
+        .custom-scroll::-webkit-scrollbar {
+            width: 12px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #d97706;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="overflow-hidden h-screen w-screen flex items-center justify-center p-0 m-0 bg-stone-950">
+
+    <!-- Game Outer Wrapper (Strictly aspect-locked to exactly 3840x2498 to prevent stretch distortion) -->
+    <div class="relative w-full h-full max-w-full max-h-full flex items-center justify-center overflow-hidden bg-black">
+        <div id="gameContainer" class="relative overflow-hidden bg-black shadow-2xl">
+            
+            <!-- Canvas is fixed at 3840x2498 natively for precision UHD matching -->
+            <canvas id="gameCanvas" width="3840" height="2498" class="w-full h-full block"></canvas>
+
+            <!-- Touch / Click Shoot Area Overlay -->
+            <div id="clickArea" class="absolute inset-0 z-10 cursor-pointer"></div>
+
+            <!-- UI Container that scales dynamically via Javascript to match the canvas's physical size -->
+            <div id="uiContainer" class="absolute inset-0 pointer-events-none select-none z-20 overflow-hidden">
+                
+                <!-- Top Right Wooden UI Board using bang_diem.png -->
+                <div id="scoreBoard" class="absolute top-12 right-12 pointer-events-none transition-all duration-300 bg-contain bg-no-repeat bg-center flex flex-col justify-center px-20 py-12 gap-2 text-white font-extrabold" style="background-image: url('bang_diem.png'); width: 700px; height: 350px;">
+                    <!-- Score Row -->
+                    <div class="flex items-center justify-between">
+                        <span class="flex items-center gap-3 text-yellow-500 text-6xl">
+                            <i class="fa-solid fa-sack-dollar text-yellow-600"></i> Score:
+                        </span>
+                        <span id="scoreText" class="gaming-title text-white text-6xl">0</span>
+                    </div>
+                    <!-- Target Row -->
+                    <div class="flex items-center justify-between">
+                        <span class="flex items-center gap-3 text-yellow-500 text-6xl">
+                            <i class="fa-solid fa-box-open text-yellow-600"></i> Target:
+                        </span>
+                        <span id="targetText" class="gaming-title text-white text-6xl">2000</span>
+                    </div>
+                    <!-- Time Row -->
+                    <div class="flex items-center justify-between">
+                        <span class="flex items-center gap-3 text-yellow-500 text-6xl">
+                            <i class="fa-solid fa-hourglass-half text-yellow-600 animate-pulse"></i> Time:
+                        </span>
+                        <span id="timeText" class="gaming-title text-white text-6xl">90s</span>
+                    </div>
+                </div>
+
+                <!-- Top Left Inventory/Level Info Panel -->
+                <div class="absolute top-12 left-12 flex flex-col gap-6 pointer-events-none">
+                    <div class="bg-black/75 backdrop-blur-md rounded-full px-8 py-3 border-2 border-white/20 text-white font-black flex items-center gap-4 text-3xl">
+                        <span class="bg-amber-600 px-4 py-1.5 rounded-full text-lg uppercase tracking-wider">Cửa</span>
+                        <span id="levelLabel" class="gaming-title text-yellow-300 text-4xl">1</span>
+                    </div>
+                    <!-- Dynamite Counter UI -->
+                    <div class="bg-black/75 backdrop-blur-md rounded-full px-8 py-3 border-2 border-red-500/30 text-white font-black flex items-center gap-4 text-3xl">
+                        <i class="fa-solid fa-bomb text-red-500 text-4xl animate-bounce"></i>
+                        <span>Mìn mang theo:</span>
+                        <span id="dynamiteLabel" class="gaming-title text-red-400 text-4xl">1</span>
+                    </div>
+                </div>
+
+                <!-- Bottom Right Action overlay -->
+                <div class="absolute bottom-12 right-12 flex flex-col gap-4 pointer-events-auto">
+                    <button id="btnDynamite" class="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:scale-95 text-white p-8 rounded-full shadow-2xl border-4 border-red-400 font-black flex items-center justify-center gap-4 cursor-pointer transition-all">
+                        <i class="fa-solid fa-bomb text-4xl animate-pulse"></i>
+                        <span class="text-2xl font-black tracking-wider">KÍCH NỔ MÌN (D / ↑)</span>
+                    </button>
+                </div>
+
+                <!-- Start Game Screen -->
+                <div id="startScreen" class="absolute inset-0 z-30 bg-black/90 flex flex-col items-center justify-center p-8 text-center pointer-events-auto">
+                    <div class="max-w-[1268px] min-h-[1150px] w-full bg-amber-950/95 border-8 border-amber-600 rounded-[50px] p-24 shadow-2xl text-amber-50 flex flex-col justify-between">
+                        <div>
+                            <h1 class="gaming-title text-8xl text-yellow-400 mb-6 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] flex items-center justify-center gap-6">
+                                <i class="fa-solid fa-helmet-safety text-yellow-400 text-7xl animate-pulse"></i> ĐÀO VÀNG CHUYÊN NGHIỆP <i class="fa-solid fa-screwdriver-wrench text-yellow-400 text-7xl"></i>
+                            </h1>
+                            <h2 class="text-4xl text-yellow-300 font-bold mb-14 italic">Độ phân giải chuẩn nét 3840x2498</h2>
+                            
+                            <div class="bg-black/40 border border-amber-800/50 rounded-3xl p-12 mb-12 text-3xl text-left leading-relaxed space-y-6">
+                                <p><strong class="text-yellow-300">Nhiệm vụ:</strong> Điều khiển hệ thống tời cơ khí kéo thật nhiều vàng bạc châu báu dưới lòng đất sâu!</p>
+                                <p class="text-amber-200"><i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-2"></i> Hệ thống đã cập nhật đồng bộ các file tài nguyên không dấu: <strong>mat_dat.png</strong>, <strong>long_dat.png</strong>, <strong>keyroll.png</strong>, <strong>keyroll2.png</strong> chuẩn GitHub Pages.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-10 justify-center mt-6">
+                            <button id="btnCustomize" class="bg-stone-700 hover:bg-stone-600 text-4xl font-bold py-8 px-14 rounded-3xl shadow-lg border-b-8 border-stone-900 flex items-center justify-center gap-4 transition-all">
+                                <i class="fa-solid fa-paint-brush text-yellow-400"></i> TÙY CHỈNH MỎ
+                            </button>
+                            
+                            <button id="btnStartGame" class="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-white font-black text-5xl py-8 px-16 rounded-3xl shadow-lg border-b-8 border-amber-800 tracking-wider active:scale-95 transition-all">
+                                CHƠI NGAY <i class="fa-solid fa-play ml-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customizer Panel Modal Overlay -->
+                <div id="customizerModal" class="absolute inset-0 z-40 bg-black/95 flex flex-col items-center justify-center p-8 text-center hidden pointer-events-auto">
+                    <div class="max-w-[1296px] w-full bg-stone-900 border-8 border-yellow-600 rounded-[40px] p-16 shadow-2xl text-stone-50 flex flex-col h-full max-h-[1800px]">
+                        <h3 class="gaming-title text-5xl text-yellow-400 mb-3">TÙY CHỈNH GIAO DIỆN MỎ</h3>
+                        <p class="text-2xl text-stone-400 mb-8">Thiết kế phong cách độc đáo cho mỏ vàng của riêng bạn</p>
+
+                        <div class="flex-1 overflow-y-auto pr-3 space-y-8 text-left text-2xl custom-scroll mb-8">
+                            <!-- Theme Selector Section -->
+                            <div class="bg-stone-850 p-8 rounded-3xl border-2 border-stone-800">
+                                <h4 class="font-bold text-yellow-500 mb-4 flex items-center gap-3 text-3xl">
+                                    <i class="fa-solid fa-mountain"></i> 1. Chủ đề màu sắc (Dự phòng)
+                                </h4>
+                                <div class="grid grid-cols-3 gap-6">
+                                    <button onclick="setGameTheme('classic')" id="theme-classic" class="theme-btn py-5 px-6 text-xl font-bold rounded-2xl border-4 border-yellow-500 bg-amber-950 text-white text-center transition-all">
+                                        Classic Đất Nâu
+                                    </button>
+                                    <button onclick="setGameTheme('cyberpunk')" id="theme-cyberpunk" class="theme-btn py-5 px-6 text-xl font-bold rounded-2xl border-4 border-stone-700 bg-stone-800 text-stone-400 text-center transition-all">
+                                        Cyber Neon
+                                    </button>
+                                    <button onclick="setGameTheme('volcano')" id="theme-volcano" class="theme-btn py-5 px-6 text-xl font-bold rounded-2xl border-4 border-stone-700 bg-stone-800 text-stone-400 text-center transition-all">
+                                        Dung Nham Đỏ
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Custom Background Upload Section -->
+                            <div class="bg-stone-850 p-8 rounded-3xl border-2 border-stone-800">
+                                <h4 class="font-bold text-yellow-500 mb-4 flex items-center gap-3 text-3xl">
+                                    <i class="fa-solid fa-mountain-sun"></i> 2. Thay Đổi Ảnh Nền Khác (Tải lên)
+                                </h4>
+                                <div class="grid grid-cols-2 gap-8">
+                                    <div class="bg-stone-800 p-8 rounded-3xl text-center flex flex-col items-center justify-center">
+                                        <span class="text-2xl font-bold text-sky-400 block mb-4">Mặt đất & Bầu trời</span>
+                                        <label for="uploadSkyBg" class="w-full bg-stone-700 hover:bg-stone-600 text-white text-xl font-bold py-4 px-6 rounded-2xl cursor-pointer flex items-center justify-center gap-2 transition-all">
+                                            <i class="fa-solid fa-upload"></i> Chọn Ảnh
+                                        </label>
+                                        <input type="file" id="uploadSkyBg" accept="image/*" class="hidden">
+                                        <span class="text-base text-stone-400 mt-3 italic">Mặc định: mat_dat.png</span>
+                                    </div>
+                                    <div class="bg-stone-800 p-8 rounded-3xl text-center flex flex-col items-center justify-center">
+                                        <span class="text-2xl font-bold text-amber-500 block mb-4">Mỏ dưới lòng đất</span>
+                                        <label for="uploadUndergroundBg" class="w-full bg-stone-700 hover:bg-stone-600 text-white text-xl font-bold py-4 px-6 rounded-2xl cursor-pointer flex items-center justify-center gap-2 transition-all">
+                                            <i class="fa-solid fa-upload"></i> Chọn Ảnh
+                                        </label>
+                                        <input type="file" id="uploadUndergroundBg" accept="image/*" class="hidden">
+                                        <span class="text-base text-stone-400 mt-3 italic">Mặc định: long_dat.png</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="btnSaveCustomizer" class="w-full bg-green-600 hover:bg-green-500 text-white font-black py-6 rounded-2xl shadow-lg border-b-8 border-green-800 tracking-wider text-2xl transition-all">
+                            LƯU & QUAY LẠI <i class="fa-solid fa-check ml-3"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upgrade / Shop Screen -->
+                <div id="shopScreen" class="absolute inset-0 z-30 bg-black/95 flex flex-col items-center justify-center p-8 text-center hidden pointer-events-auto">
+                    <div class="max-w-[1368px] w-full bg-amber-950/95 border-8 border-amber-600 rounded-[40px] p-32 shadow-2xl text-amber-50 flex flex-col h-full max-h-[1800px]">
+                        <h2 class="gaming-title text-6xl text-yellow-400 mb-4">CỬA HÀNG ĐÀO MỎ <i class="fa-solid fa-store text-yellow-500"></i></h2>
+                        <p class="text-3xl text-amber-200 mb-10">Tích lũy trang bị để vượt qua cửa tiếp theo dễ dàng hơn!</p>
+                        
+                        <div class="bg-black/40 border-2 border-amber-800 rounded-2xl p-8 mb-8 flex justify-between items-center">
+                            <span class="text-3xl font-bold text-stone-350">Số dư hiện tại:</span>
+                            <span class="flex items-center gap-3 text-yellow-400 font-bold text-5xl gaming-title">
+                                <i class="fa-solid fa-sack-dollar text-yellow-500"></i>
+                                <span id="shopPlayerFunds">0</span>
+                            </span>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto pr-3 space-y-6 custom-scroll mb-8 text-left">
+                            <!-- Dynamite Item -->
+                            <div class="bg-stone-900/90 border-2 border-stone-750 rounded-2xl p-6 flex items-center justify-between gap-6">
+                                <div class="flex items-center gap-6">
+                                    <div class="w-24 h-24 bg-red-950/80 border border-red-500/30 rounded-xl flex items-center justify-center text-red-500 text-5xl">
+                                        <i class="fa-solid fa-bomb"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-4xl text-white mb-2">Mìn Thuốc Nổ</h4>
+                                        <p class="text-2xl text-stone-400 leading-normal">Nổ tung đá cuội nặng đang kéo lên (bằng phím D, ↑ hoặc nút kích nổ).</p>
+                                    </div>
+                                </div>
+                                <button onclick="buyItem('dynamite', 150)" class="shop-btn-buy flex flex-col items-center bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold py-4 px-8 rounded-xl text-2xl min-w-[160px] transition-all">
+                                    <span>Mua</span>
+                                    <span class="text-yellow-300 text-lg"><i class="fa-solid fa-dollar-sign"></i> 150</span>
+                                </button>
+                            </div>
+
+                            <!-- Strength Tonic Item -->
+                            <div class="bg-stone-900/90 border-2 border-stone-750 rounded-2xl p-6 flex items-center justify-between gap-6">
+                                <div class="flex items-center gap-6">
+                                    <div class="w-24 h-24 bg-emerald-950/80 border border-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-400 text-5xl">
+                                        <i class="fa-solid fa-prescription-bottle-medical"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-4xl text-white mb-2">Nước Tăng Lực</h4>
+                                        <p class="text-2xl text-stone-400 leading-normal">Tăng 35% tốc độ tời kéo tất cả vật phẩm ở màn tiếp theo.</p>
+                                    </div>
+                                </div>
+                                <button onclick="buyItem('strength', 250)" class="shop-btn-buy flex flex-col items-center bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold py-4 px-8 rounded-xl text-2xl min-w-[160px] transition-all">
+                                    <span>Mua</span>
+                                    <span class="text-yellow-300 text-lg"><i class="fa-solid fa-dollar-sign"></i> 250</span>
+                                </button>
+                            </div>
+
+                            <!-- Lucky Clover Item -->
+                            <div class="bg-stone-900/90 border-2 border-stone-750 rounded-2xl p-6 flex items-center justify-between gap-6">
+                                <div class="flex items-center gap-6">
+                                    <div class="w-24 h-24 bg-green-950/80 border border-green-500/30 rounded-xl flex items-center justify-center text-green-400 text-5xl">
+                                        <i class="fa-solid fa-clover"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-4xl text-white mb-2">Cỏ Bốn Lá May Mắn</h4>
+                                        <p class="text-2xl text-stone-400 leading-normal">Nhận gấp đôi điểm từ Kim Cương thu thập được ở màn tiếp theo.</p>
+                                    </div>
+                                </div>
+                                <button onclick="buyItem('clover', 200)" class="shop-btn-buy flex flex-col items-center bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold py-4 px-8 rounded-xl text-2xl min-w-[160px] transition-all">
+                                    <span>Mua</span>
+                                    <span class="text-yellow-300 text-lg"><i class="fa-solid fa-dollar-sign"></i> 200</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="btnNextLevel" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-6 rounded-xl shadow-lg border-b-8 border-emerald-800 tracking-wider text-2xl transition-all">
+                            TIẾP TỤC CỬA SAU <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Game Over Screen -->
+                <div id="gameOverScreen" class="absolute inset-0 z-30 bg-black/90 flex flex-col items-center justify-center p-8 text-center hidden pointer-events-auto">
+                    <div class="max-w-2xl w-full bg-red-950/90 border-8 border-red-600 rounded-3xl p-12 shadow-2xl text-red-50">
+                        <h2 class="gaming-title text-5xl text-yellow-400 mb-2">HẾT GIỜ RỒI! <i class="fa-regular fa-clock text-red-500"></i></h2>
+                        <p class="text-lg text-red-200 mb-6">Bạn chưa hoàn thành mục tiêu điểm số của màn này.</p>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-8 bg-black/50 p-6 rounded-2xl border-2 border-red-800">
+                            <div class="text-left">
+                                <span class="text-sm text-stone-400">Điểm đạt được:</span>
+                                <div id="finalScore" class="text-4xl font-bold text-white gaming-title">0</div>
+                            </div>
+                            <div class="text-left">
+                                <span class="text-sm text-stone-400">Mục tiêu cần đạt:</span>
+                                <div id="finalTarget" class="text-4xl font-bold text-yellow-400 gaming-title">0</div>
+                            </div>
+                        </div>
+
+                        <button id="btnRetryGame" class="w-full bg-gradient-to-r from-red-600 to-amber-700 hover:from-red-500 hover:to-amber-600 text-white font-black text-2xl py-4 rounded-xl shadow-lg border-b-4 border-red-900 active:scale-95 transition-all">
+                            THỬ LẠI CỬA NÀY <i class="fa-solid fa-rotate-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Notification Box -->
+                <div id="notifBox" class="absolute top-[160px] left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-0 scale-90 transition-all duration-300 bg-black/85 text-yellow-300 px-8 py-3 rounded-full border border-yellow-500/30 text-xl font-bold text-center flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span id="notifText">Chưa mua vật phẩm nào</span>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let synth, noiseSynth;
+        let isAudioInitialized = false;
+
+        function initAudio() {
+            if (isAudioInitialized) return;
+            try {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.05, decay: 0.1, sustain: 0.3, release: 0.3 }
+                }).toDestination();
+                synth.volume.value = -6;
+
+                noiseSynth = new Tone.NoiseSynth({
+                    noise: { type: "pink" },
+                    envelope: { attack: 0.02, decay: 0.6, sustain: 0 }
+                }).toDestination();
+                noiseSynth.volume.value = -10;
+
+                isAudioInitialized = true;
+            } catch (e) {
+                console.warn("Tone.js deferred:", e);
+            }
+        }
+
+        function playSound(type) {
+            if (!isAudioInitialized) return;
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const now = Tone.now();
+                switch (type) {
+                    case 'shoot':
+                        synth.triggerAttackRelease("G3", "16n", now);
+                        synth.triggerAttackRelease("C4", "16n", now + 0.08);
+                        break;
+                    case 'grab':
+                        synth.triggerAttackRelease("E2", "8n", now);
+                        break;
+                    case 'gold':
+                        synth.triggerAttackRelease("C5", "16n", now);
+                        synth.triggerAttackRelease("E5", "16n", now + 0.08);
+                        synth.triggerAttackRelease("G5", "16n", now + 0.16);
+                        break;
+                    case 'diamond':
+                        synth.triggerAttackRelease("E6", "16n", now);
+                        synth.triggerAttackRelease("A6", "16n", now + 0.1);
+                        break;
+                    case 'rock':
+                        synth.triggerAttackRelease("C2", "8n", now);
+                        break;
+                    case 'explosion':
+                        noiseSynth.triggerAttack();
+                        synth.triggerAttackRelease("F2", "2n", now);
+                        break;
+                    case 'win':
+                        synth.triggerAttackRelease("G4", "8n", now);
+                        synth.triggerAttackRelease("B4", "8n", now + 0.15);
+                        synth.triggerAttackRelease("D5", "8n", now + 0.3);
+                        synth.triggerAttackRelease("G5", "4n", now + 0.45);
+                        break;
+                }
+            } catch (err) {}
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const clickArea = document.getElementById('clickArea');
+
+        let gameState = 'MENU'; 
+        let score = 0;
+        let targetScore = 2000;
+        let timeLeft = 90;
+        let level = 1;
+        let timerInterval = null;
+
+        let dynamiteCount = 1;
+        let hasStrengthDrink = false;
+        let hasLuckyClover = false;
+        let currentTheme = 'classic'; 
+
+        // GitHub Pages Compliant Assets
+        const defaultSkyImg = new Image();
+        defaultSkyImg.src = 'mat_dat.png';
+
+        const defaultUndergroundImg = new Image();
+        defaultUndergroundImg.src = 'long_dat.png';
+
+        let customSkyBgImg = null;
+        let customUndergroundBgImg = null;
+
+        // Load 2D Assets
+        const goldImg1 = new Image(); goldImg1.src = 'vang_1.png';
+        const goldImg2 = new Image(); goldImg2.src = 'vang_2.png';
+        const goldImg3 = new Image(); goldImg3.src = 'vang_3.png';
+        const diamondImg = new Image(); diamondImg.src = 'kim_cuong.png';
+        const rockImg1 = new Image(); rockImg1.src = 'da_1.png';
+        const rockImg2 = new Image(); rockImg2.src = 'da_2.png';
+        const gemImg = new Image(); gemImg.src = 'da_quy.png';
+
+        let particles = [];
+        let scorePopups = [];
+
+        const winchX = () => 1930; 
+        const winchY = () => 450;  
+        const groundThresholdY = 670;
+
+        // Tải ảnh móc tời keyroll2.png chuẩn chỉnh
+        const keyrollImg = new Image();
+        keyrollImg.src = 'keyroll2.png'; 
+        let keyrollLoaded = false;
+        keyrollImg.onload = () => { keyrollLoaded = true; };
+        keyrollImg.onerror = () => { keyrollLoaded = false; };
+
+        // Tải ảnh dây cáp bện keyroll.png
+        const ropeImg = new Image();
+        ropeImg.src = 'keyroll.png';
+        let ropeImgLoaded = false;
+        ropeImg.onload = () => { ropeImgLoaded = true; };
+
+        const claw = {
+            angle: 0,
+            angleDirection: 1, 
+            angleSpeed: 0.016, 
+            minAngle: -Math.PI * 0.42,
+            maxAngle: Math.PI * 0.42,
+            length: 180,
+            minLength: 180,
+            maxLength: 2400,
+            speed: 0,
+            baseSpeed: 16.0, 
+            state: 'SWING', 
+            grabbedItem: null
+        };
+
+        let items = [];
+
+        function generateItems() {
+            items = [];
+            targetScore = 2000 + (level - 1) * 1200;
+            document.getElementById('targetText').innerText = targetScore;
+
+            const density = 15 + Math.min(level * 2, 10);
+            const startY = groundThresholdY + 120; 
+            const endY = 2498 - 120;
+            const width = 3840;
+
+            function checkOverlap(x, y, radius) {
+                for (let item of items) {
+                    const dx = item.x - x; const dy = item.y - y;
+                    if (Math.sqrt(dx * dx + dy * dy) < (item.radius + radius + 100)) return true;
+                }
+                return false;
+            }
+
+            for (let i = 0; i < density; i++) {
+                let x, y, radius, type, weight, val;
+                let valid = false; let attempts = 0;
+
+                while (!valid && attempts < 150) {
+                    attempts++;
+                    x = 150 + Math.random() * (width - 300);
+                    y = startY + Math.random() * (endY - startY);
+
+                    const rand = Math.random();
+                    if (rand < 0.15) { type = 'diamond'; radius = 45; weight = 1.5; val = 500; }
+                    else if (rand < 0.25) { type = 'blue_gem'; radius = 55; weight = 2.0; val = 300; }
+                    else if (rand < 0.45) { type = 'gold_large'; radius = 95 + Math.random() * 20; weight = 7.5; val = 450; }
+                    else if (rand < 0.65) { type = 'gold_medium'; radius = 65 + Math.random() * 15; weight = 4.0; val = 200; }
+                    else if (rand < 0.80) { type = 'gold_small'; radius = 42 + Math.random() * 10; weight = 1.8; val = 100; }
+                    else {
+                        const isLarge = Math.random() > 0.4;
+                        type = isLarge ? 'rock_large' : 'rock_small';
+                        radius = isLarge ? 85 + Math.random() * 20 : 50 + Math.random() * 10;
+                        weight = isLarge ? 8.5 : 4.5; val = isLarge ? 25 : 10;
+                    }
+                    if (!checkOverlap(x, y, radius)) valid = true;
+                }
+                if (valid) items.push({ x, y, radius, type, weight, val, destroyed: false, gleamOffset: Math.random() * 1000 });
+            }
+        }
+
+        function triggerSparkle(x, y, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12,
+                    alpha: 1.0, size: 8 + Math.random() * 10,
+                    color: `hsl(${45 + Math.random() * 20}, 100%, 70%)`
+                });
+            }
+        }
+
+        function triggerDust(x, y, count = 15) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                    alpha: 0.8, size: 10 + Math.random() * 12,
+                    color: currentTheme === 'cyberpunk' ? '#581c87' : (currentTheme === 'volcano' ? '#7f1d1d' : '#653b1b')
+                });
+            }
+        }
+
+        function addScorePopup(x, y, val) {
+            scorePopups.push({ x: x, y: y - 30, text: `+${val}`, alpha: 1.0, scale: 1.0, color: val >= 300 ? '#facc15' : '#ffffff' });
+        }
+
+        function drawScene() {
+            let bgGrad = ctx.createLinearGradient(0, 0, 0, 2498);
+            let skyColor = '#172554';
+
+            if (currentTheme === 'classic') {
+                bgGrad.addColorStop(0, '#352010'); bgGrad.addColorStop(0.3, '#2a160a'); bgGrad.addColorStop(0.7, '#1b0e06'); bgGrad.addColorStop(1, '#0e0500');
+            } else if (currentTheme === 'cyberpunk') {
+                skyColor = '#020617'; bgGrad.addColorStop(0, '#120b1e'); bgGrad.addColorStop(0.4, '#180828'); bgGrad.addColorStop(0.8, '#0f021c'); bgGrad.addColorStop(1, '#05000a');
+            } else if (currentTheme === 'volcano') {
+                skyColor = '#180000'; bgGrad.addColorStop(0, '#2d0f0f'); bgGrad.addColorStop(0.3, '#240606'); bgGrad.addColorStop(0.7, '#180202'); bgGrad.addColorStop(1, '#0c0000');
+            }
+
+            if (customUndergroundBgImg) {
+                ctx.drawImage(customUndergroundBgImg, 0, groundThresholdY, 3840, 2498 - groundThresholdY);
+            } else if (defaultUndergroundImg.complete && defaultUndergroundImg.naturalWidth !== 0) {
+                ctx.drawImage(defaultUndergroundImg, 0, groundThresholdY, 3840, 2498 - groundThresholdY);
+            } else {
+                ctx.fillStyle = bgGrad; ctx.fillRect(0, groundThresholdY, 3840, 2498 - groundThresholdY);
+            }
+
+            if (customSkyBgImg) {
+                ctx.drawImage(customSkyBgImg, 0, 0, 3840, groundThresholdY);
+            } else if (defaultSkyImg.complete && defaultSkyImg.naturalWidth !== 0) {
+                ctx.drawImage(defaultSkyImg, 0, 0, 3840, groundThresholdY);
+            } else {
+                ctx.fillStyle = skyColor; ctx.fillRect(0, 0, 3840, groundThresholdY);
+            }
+        }
+
+        // Draw fully pixel-clean custom asset graphics with lens flare blinking animations
+        function drawItems() {
+            const timeMs = performance.now();
+
+            for (let item of items) {
+                if (item.destroyed) continue;
+
+                // 1. VẼ HÀO QUANG TỎA SÁNG SIÊU ĐẬM (PULSING BLOOM - ADDITIVE COMPOSITING)
+                if (item.type.startsWith('gold') || item.type === 'diamond' || item.type === 'blue_gem') {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter'; // Additive blending for gorgeous glowing blooms!
+                    
+                    const pulse = 1.0 + Math.sin(timeMs * 0.0035 + item.gleamOffset) * 0.18;
+                    
+                    let glowColor = '#ffae00'; // Vàng hoàng gia rực rỡ cho Vàng
+                    if (item.type === 'diamond') {
+                        glowColor = '#38bdf8'; // Xanh lam nhạt lấp lánh cho Kim cương
+                    } else if (item.type === 'blue_gem') {
+                        glowColor = '#0040ff'; // Xanh dương đậm huyền ảo cho Đá quý
+                    }
+
+                    // Layer 1: Hào quang tỏa rộng mềm mại bên ngoài (Ambient Bloom)
+                    let radialGrad1 = ctx.createRadialGradient(
+                        item.x, item.y, item.radius * 0.1,
+                        item.x, item.y, item.radius * 2.5 * pulse
+                    );
+                    radialGrad1.addColorStop(0, glowColor); 
+                    radialGrad1.addColorStop(0.3, glowColor + 'a0'); // 160/255 opacity
+                    radialGrad1.addColorStop(0.6, glowColor + '40');  // 64/255 opacity
+                    radialGrad1.addColorStop(1, '#00000000');
+                    
+                    ctx.fillStyle = radialGrad1;
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, item.radius * 2.5 * pulse, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Layer 2: Nhân sáng cực mạnh ở tâm (Hot Core Glow)
+                    let radialGrad2 = ctx.createRadialGradient(
+                        item.x, item.y, 0,
+                        item.x, item.y, item.radius * 1.1 * pulse
+                    );
+                    radialGrad2.addColorStop(0, '#ffffff'); 
+                    radialGrad2.addColorStop(0.4, glowColor); 
+                    radialGrad2.addColorStop(1, '#00000000');
+                    
+                    ctx.fillStyle = radialGrad2;
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, item.radius * 1.1 * pulse, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+
+                ctx.save();
+                let assetImg = null;
+
+                if (item.type === 'gold_large') assetImg = goldImg1;
+                else if (item.type === 'gold_medium') assetImg = goldImg2;
+                else if (item.type === 'gold_small') assetImg = goldImg3;
+                else if (item.type === 'diamond') assetImg = diamondImg;
+                else if (item.type === 'rock_large') assetImg = rockImg1;
+                else if (item.type === 'rock_small') assetImg = rockImg2;
+                else if (item.type === 'blue_gem') assetImg = gemImg;
+
+                if (assetImg && assetImg.complete && assetImg.naturalWidth !== 0) {
+                    ctx.drawImage(assetImg, item.x - item.radius * 1.15, item.y - item.radius * 1.15, item.radius * 2.3, item.radius * 2.3);
+
+                    // 2. VẼ CÁC NGÔI SAO LẤP LÁNH NGHỆ THUẬT SIÊU SÁNG (CONCAVE GLINT STARS) TRÊN ĐẦU VẬT PHẨM
+                    if (item.type.startsWith('gold') || item.type === 'diamond' || item.type === 'blue_gem') {
+                        // Xác định 3 vị trí nhấp nháy độc lập xung quanh vật phẩm
+                        const starPositions = [
+                            { dx: -item.radius * 0.6, dy: -item.radius * 0.4, speed: 0.005, offset: 0, scale: 0.95 },
+                            { dx: item.radius * 0.5, dy: item.radius * 0.3, speed: 0.003, offset: Math.PI, scale: 0.75 },
+                            { dx: -item.radius * 0.1, dy: item.radius * 0.5, speed: 0.004, offset: Math.PI / 2, scale: 0.6 }
+                        ];
+
+                        starPositions.forEach(pos => {
+                            const blink = Math.sin(timeMs * pos.speed + item.gleamOffset + pos.offset);
+                            // Chỉ vẽ khi sóng sáng đạt chu kỳ cao để tạo nhịp chớp tắt chân thực
+                            if (blink > 0.15) {
+                                const flareAlpha = (blink - 0.15) / 0.85;
+                                ctx.save();
+                                ctx.globalCompositeOperation = 'lighter';
+                                ctx.globalAlpha = flareAlpha;
+                                ctx.translate(item.x + pos.dx, item.y + pos.dy);
+                                // Xoay nhẹ ngôi sao theo thời gian
+                                ctx.rotate(timeMs * 0.0025 + pos.offset);
+
+                                let starColor = '#ffb300'; // Vàng rực rỡ
+                                let starCore = '#ffffff';
+                                if (item.type === 'diamond') starColor = '#00d0ff'; // Xanh nhạt siêu sáng
+                                else if (item.type === 'blue_gem') starColor = '#0033ff'; // Xanh dương đậm đà
+
+                                ctx.fillStyle = starCore;
+                                ctx.shadowBlur = 35;
+                                ctx.shadowColor = starColor;
+
+                                // Thuật toán vẽ ngôi sao bốn cánh cong vút (Concave 4-Point Star Glare) chuẩn Game Studio
+                                const r = item.radius * 0.65 * pos.scale;
+                                ctx.beginPath();
+                                ctx.moveTo(0, -r);
+                                ctx.quadraticCurveTo(0, 0, r, 0);
+                                ctx.quadraticCurveTo(0, 0, 0, r);
+                                ctx.quadraticCurveTo(0, 0, -r, 0);
+                                ctx.quadraticCurveTo(0, 0, 0, -r);
+                                ctx.closePath();
+                                ctx.fill();
+
+                                // Lõi sáng trắng ở giữa
+                                ctx.beginPath();
+                                ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fill();
+
+                                ctx.restore();
+                            }
+                        });
+                    }
+                } else {
+                    let grad = ctx.createRadialGradient(item.x - item.radius/3, item.y - item.radius/3, item.radius * 0.1, item.x, item.y, item.radius);
+                    if (item.type.startsWith('gold')) { grad.addColorStop(0, '#fef08a'); grad.addColorStop(1, '#854d0e'); } 
+                    else if (item.type === 'diamond' || item.type === 'blue_gem') { grad.addColorStop(0, '#e0f2fe'); grad.addColorStop(1, '#0284c7'); } 
+                    else { grad.addColorStop(0, '#a1a1aa'); grad.addColorStop(1, '#27272a'); }
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        function drawClaw() {
+            const endX = winchX() + Math.sin(claw.angle) * claw.length;
+            const endY = winchY() + Math.cos(claw.angle) * claw.length;
+
+            ctx.save();
+            if (ropeImgLoaded && ropeImg.naturalWidth !== 0) {
+                ctx.translate(winchX(), winchY());
+                ctx.rotate(-claw.angle);
+                ctx.drawImage(ropeImg, -18, 0, 36, claw.length);
+            } else {
+                ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 8;
+                ctx.beginPath(); ctx.moveTo(winchX(), winchY()); ctx.lineTo(endX, endY); ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(endX, endY);
+            ctx.rotate(-claw.angle); 
+
+            let clampScale = 1.0; 
+            if (claw.state === 'GRABBED') clampScale = 0.55; 
+            else if (claw.state === 'RETRACT') clampScale = 0.75; 
+
+            // CƠ CHẾ KIỂM TRA ĐỘC LẬP: Tránh tuyệt đối việc lấy nhầm file cáp keyroll.png để vẽ tời
+            if (keyrollLoaded && keyrollImg.naturalWidth !== 0 && !keyrollImg.src.endsWith('keyroll.png')) {
+                const clawW = 270;
+                const clawH = 270;
+                ctx.drawImage(keyrollImg, -(clawW * clampScale) / 2, -30, clawW * clampScale, clawH);
+            } else {
+                // VẼ VECTOR THỦ CÔNG HOÀN MỸ (Tuyệt đối không bị biến mất nếu lỗi ảnh)
+                ctx.strokeStyle = '#475569';
+                ctx.fillStyle = '#64748b';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                // Hộp tời trung tâm (Wrist)
+                ctx.beginPath();
+                ctx.rect(-35, -20, 70, 35);
+                ctx.fill();
+                ctx.stroke();
+
+                // Cánh móc trái tự động bóp góc theo clampScale
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 14;
+                ctx.beginPath();
+                ctx.arc(-25 * clampScale, 15, 60, Math.PI * 0.8, Math.PI * 1.8, true);
+                ctx.stroke();
+
+                // Cánh móc phải tự động bóp góc theo clampScale
+                ctx.beginPath();
+                ctx.arc(25 * clampScale, 15, 60, Math.PI * 0.2, Math.PI * 1.2, false);
+                ctx.stroke();
+
+                // Trục xoay cơ khí mạ crôm lấp lánh
+                ctx.beginPath();
+                ctx.arc(0, -3, 12, 0, Math.PI * 2);
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fill();
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            if (claw.state === 'GRABBED' && claw.grabbedItem) {
+                claw.grabbedItem.x = endX;
+                claw.grabbedItem.y = endY + 160 + claw.grabbedItem.radius * 0.2;
+            }
+        }
+
+        function drawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.02;
+                if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            }
+
+            for (let i = scorePopups.length - 1; i >= 0; i--) {
+                let s = scorePopups[i]; s.y -= 2.0; s.alpha -= 0.015;
+                if (s.alpha <= 0) { scorePopups.splice(i, 1); continue; }
+                ctx.save(); ctx.globalAlpha = s.alpha; ctx.font = 'bold 64px Lexend';
+                ctx.textAlign = 'center'; ctx.fillStyle = s.color;
+                ctx.shadowColor = 'black'; ctx.shadowBlur = 10; ctx.fillText(s.text, s.x, s.y); ctx.restore();
+            }
+        }
+
+        function updateGamePhysics() {
+            if (gameState !== 'PLAYING') return;
+
+            if (claw.state === 'SWING') {
+                claw.angle += claw.angleSpeed * claw.angleDirection;
+                if (claw.angle >= claw.maxAngle) { claw.angle = claw.maxAngle; claw.angleDirection = -1; }
+                else if (claw.angle <= claw.minAngle) { claw.angle = claw.minAngle; claw.angleDirection = 1; }
+            }
+            else if (claw.state === 'SHOOT') {
+                claw.length += claw.speed;
+                const endX = winchX() + Math.sin(claw.angle) * claw.length;
+                const endY = winchY() + Math.cos(claw.angle) * claw.length;
+
+                if (endX < 0 || endX > 3840 || endY > 2498 || claw.length >= claw.maxLength) { claw.state = 'RETRACT'; }
+
+                for (let item of items) {
+                    if (item.destroyed) continue;
+                    const dx = item.x - endX; const dy = item.y - endY;
+                    if (Math.sqrt(dx * dx + dy * dy) < (item.radius + 50)) {
+                        claw.state = 'GRABBED'; claw.grabbedItem = item; playSound('grab'); break;
+                    }
+                }
+            }
+            else if (claw.state === 'RETRACT') {
+                claw.length -= claw.baseSpeed * 1.5;
+                if (claw.length <= claw.minLength) { claw.length = claw.minLength; claw.state = 'SWING'; }
+            }
+            else if (claw.state === 'GRABBED') {
+                if (claw.grabbedItem) {
+                    let dragFactor = claw.grabbedItem.weight;
+                    if (hasStrengthDrink) dragFactor *= 0.65;
+                    claw.length -= Math.max(3.0, claw.baseSpeed / dragFactor);
+
+                    if (claw.length <= claw.minLength) {
+                        claw.length = claw.minLength; claw.state = 'SWING';
+                        let scoreGain = claw.grabbedItem.val;
+                        if (hasLuckyClover && (claw.grabbedItem.type === 'diamond' || claw.grabbedItem.type === 'blue_gem')) scoreGain *= 2;
+
+                        score += scoreGain; document.getElementById('scoreText').innerText = score;
+
+                        if (claw.grabbedItem.type === 'diamond' || claw.grabbedItem.type === 'blue_gem') { playSound('diamond'); triggerSparkle(winchX(), winchY() + 80, 25); } 
+                        else if (claw.grabbedItem.type.startsWith('gold')) { playSound('gold'); triggerSparkle(winchX(), winchY() + 80, 20); } 
+                        else { playSound('rock'); triggerDust(winchX(), winchY() + 80, 15); }
+
+                        addScorePopup(winchX(), winchY() + 150, scoreGain);
+                        claw.grabbedItem.destroyed = true; claw.grabbedItem = null;
+                    }
+                } else { claw.state = 'RETRACT'; }
+            }
+        }
+
+        function shootClaw() {
+            if (gameState !== 'PLAYING') return;
+            if (claw.state === 'SWING') { initAudio(); claw.state = 'SHOOT'; claw.speed = claw.baseSpeed; playSound('shoot'); }
+        }
+
+        function useDynamite() {
+            if (gameState !== 'PLAYING') return;
+            if (claw.state === 'GRABBED' && claw.grabbedItem) {
+                if (dynamiteCount > 0) {
+                    dynamiteCount--; document.getElementById('dynamiteLabel').innerText = dynamiteCount;
+                    playSound('explosion'); triggerDust(claw.grabbedItem.x, claw.grabbedItem.y, 45); triggerSparkle(claw.grabbedItem.x, claw.grabbedItem.y, 30);
+                    claw.grabbedItem.destroyed = true; claw.grabbedItem = null; claw.state = 'RETRACT';
+                    showNotification("💥 Đã nổ tung vật cản nặng!");
+                } else { showNotification("❌ Bạn không còn mìn!"); }
+            } else { showNotification("⚠️ Chỉ dùng khi đang kéo đá hoặc vật cản nặng!"); }
+        }
+
+        function showNotification(text) {
+            const box = document.getElementById('notifBox'); const txt = document.getElementById('notifText');
+            txt.innerText = text; box.style.opacity = '1'; box.style.transform = 'translate(-50%, 0) scale(1)';
+            setTimeout(() => { box.style.opacity = '0'; box.style.transform = 'translate(-50%, 0) scale(0.9)'; }, 2500);
+        }
+
+        function gameLoop(timestamp) {
+            ctx.clearRect(0, 0, 3840, 2498);
+            drawScene(); drawItems(); updateGamePhysics(); drawClaw(); drawParticles();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (gameState === 'PLAYING') {
+                    timeLeft--; document.getElementById('timeText').innerText = `${timeLeft}s`;
+                    if (timeLeft <= 0) endLevel();
+                }
+            }, 1000);
+        }
+
+        function endLevel() {
+            clearInterval(timerInterval);
+            if (score >= targetScore) {
+                playSound('win'); gameState = 'SHOP';
+                document.getElementById('shopPlayerFunds').innerText = score;
+                document.getElementById('shopScreen').classList.remove('hidden');
+                showNotification("🎉 Đạt mục tiêu! Hãy vào cửa hàng sắm đồ nâng cấp!");
+            } else {
+                gameState = 'GAMEOVER';
+                document.getElementById('finalScore').innerText = score;
+                document.getElementById('finalTarget').innerText = targetScore;
+                document.getElementById('gameOverScreen').classList.remove('hidden');
+            }
+        }
+
+        function launchNextLevel() {
+            level++; document.getElementById('levelLabel').innerText = level;
+            timeLeft = 90; document.getElementById('timeText').innerText = `${timeLeft}s`;
+            hasStrengthDrink = false; hasLuckyClover = false;
+            document.getElementById('shopScreen').classList.add('hidden');
+            generateItems(); gameState = 'PLAYING'; startTimer();
+        }
+
+        window.setGameTheme = function(themeName) {
+            currentTheme = themeName;
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('border-yellow-500', 'bg-amber-950', 'text-white');
+                btn.classList.add('border-stone-700', 'bg-stone-800', 'text-stone-400');
+            });
+            const activeBtn = document.getElementById(`theme-${themeName}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('border-stone-700', 'bg-stone-800', 'text-stone-400');
+                activeBtn.classList.add('border-yellow-500', 'bg-amber-950', 'text-white');
+            }
+        };
+
+        // Image upload handlers
+        document.getElementById('uploadSkyBg').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const img = new Image(); img.onload = () => { customSkyBgImg = img; }; img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('uploadUndergroundBg').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const img = new Image(); img.onload = () => { customUndergroundBgImg = img; }; img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function startNewSession() {
+            score = 0; level = 1; timeLeft = 90; dynamiteCount = 1; hasStrengthDrink = false; hasLuckyClover = false;
+            document.getElementById('scoreText').innerText = score;
+            document.getElementById('levelLabel').innerText = level;
+            document.getElementById('dynamiteLabel').innerText = dynamiteCount;
+            document.getElementById('timeText').innerText = `${timeLeft}s`;
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('shopScreen').classList.add('hidden');
+            generateItems(); gameState = 'PLAYING'; startTimer();
+        }
+
+        window.buyItem = function(type, price) {
+            if (score < price) { showNotification("❌ Không đủ điểm tích lũy!"); return; }
+            score -= price;
+            document.getElementById('shopPlayerFunds').innerText = score;
+            document.getElementById('scoreText').innerText = score;
+
+            if (type === 'dynamite') {
+                dynamiteCount++; document.getElementById('dynamiteLabel').innerText = dynamiteCount; showNotification("🛒 Đã mua thêm 1 Mìn Thuốc Nổ!");
+            } else if (type === 'strength') {
+                hasStrengthDrink = true; showNotification("🛒 Đã uống Nước Tăng Lực!");
+            } else if (type === 'clover') {
+                hasLuckyClover = true; showNotification("🛒 Đã trang bị Cỏ May Mắn!");
+            }
+        }
+
+        function resizeGame() {
+            const container = document.getElementById('gameContainer'); const uiContainer = document.getElementById('uiContainer');
+            if (!container) return;
+            const targetAspect = 3840 / 2498; const windowWidth = window.innerWidth; const windowHeight = window.innerHeight;
+            let width, height;
+            if ((windowWidth / windowHeight) > targetAspect) { height = windowHeight; width = height * targetAspect; } 
+            else { width = windowWidth; height = width / targetAspect; }
+            container.style.width = `${width}px`; container.style.height = `${height}px`;
+            if (uiContainer) {
+                const scale = width / 3840; uiContainer.style.width = '3840px'; uiContainer.style.height = '2498px';
+                uiContainer.style.transform = `scale(${scale})`; uiContainer.style.transformOrigin = 'top left';
+            }
+        }
+
+        clickArea.addEventListener('mousedown', () => shootClaw());
+        clickArea.addEventListener('touchstart', (e) => { e.preventDefault(); shootClaw(); });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); shootClaw(); }
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowUp') useDynamite();
+        });
+
+        document.getElementById('btnStartGame').addEventListener('click', () => { initAudio(); startNewSession(); });
+        document.getElementById('btnCustomize').addEventListener('click', () => { initAudio(); document.getElementById('customizerModal').classList.remove('hidden'); });
+        document.getElementById('btnSaveCustomizer').addEventListener('click', () => document.getElementById('customizerModal').classList.add('hidden'));
+        document.getElementById('btnNextLevel').addEventListener('click', () => launchNextLevel());
+        document.getElementById('btnRetryGame').addEventListener('click', () => {
+            timeLeft = 90; document.getElementById('timeText').innerText = `${timeLeft}s`;
+            document.getElementById('gameOverScreen').classList.add('hidden'); generateItems(); gameState = 'PLAYING'; startTimer();
+        });
+        document.getElementById('btnDynamite').addEventListener('click', (e) => { e.stopPropagation(); useDynamite(); });
+
+        window.addEventListener('resize', resizeGame);
+        window.onload = function() { resizeGame(); requestAnimationFrame(gameLoop); }
+    </script>
+</body>
+</html>
